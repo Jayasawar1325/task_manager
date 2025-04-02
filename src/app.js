@@ -12,6 +12,11 @@ app.use(express.json())
 app.use(express.urlencoded({
     extended:true
 }))
+
+// Routes
+import { authRouter } from './routes/auth.routes.js'
+app.use('/api/v1/auth',authRouter)
+
 connectDB()
 .then(()=>{
     app.listen(process.env.PORT,()=>{

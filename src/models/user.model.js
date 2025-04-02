@@ -16,6 +16,10 @@ password:{
     type:String,
     required:[true,'Password is required'],
     minLength:6
+},
+avatar:{
+    type:String,
+    required:[true,'Avatar is required']
 }
 },{timestamps:true})
 export const User = mongoose.model('User',userSchema)

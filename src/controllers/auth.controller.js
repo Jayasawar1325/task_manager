@@ -10,10 +10,10 @@ const generateAccessAndRefreshToken = async (userId) => {
       const user = await User.findById(userId);
   
       if (!user) {
-        throw new ApiError(404, "User not found"); // ✅ Ensure user exists
+        throw new ApiError(404, "User not found"); 
       }
   
-      const accessToken = user.generateAccessToken(); // ✅ Now correctly defined
+      const accessToken = user.generateAccessToken(); 
       const refreshToken = user.generateRefreshToken();
   
       user.refreshToken = refreshToken;
@@ -21,7 +21,7 @@ const generateAccessAndRefreshToken = async (userId) => {
   
       return { accessToken, refreshToken };
     } catch (error) {
-      console.error("Token Generation Error:", error); // ✅ Log error for debugging
+      console.error("Token Generation Error:", error); 
       throw new ApiError(500, "Something went wrong while generating access and refresh Token");
     }
   };
@@ -115,4 +115,82 @@ export const logoutUser = asyncHandler(async(req,res)=>{
         data:{}
     })
 
+})
+export const changePassword = asyncHandler(async(req,res)=>{
+    const {oldPassword, newPassword} = req.body;
+    const user = await User.findById(req.user?.id)
+    const isPasswordCorect =  bcrypt.compare(oldPassword);
+    if(!isPasswordCorect){
+        throw new ApiError(400,'Invalid old Password')
+    }
+    user.password = newPassword;
+    await user.save({validateBeforeSave:false})
+    return res.status(200)
+    .json({
+        message:'Password changed successfully',
+        success:true,
+        data:{}
+    })
+})
+export const updateAccountDetails = asyncHandler(async(req,res)=>{
+    const {name,email} = req.body;
+    if(!(name ||email)){
+        throw new ApiError(400,'All fields are required')
+    }
+    const user = await User.findByIdAndUpdate(req.user?._id,{
+        $set:{
+            name,
+            email
+        }
+    },{
+        new:true
+    }).select('-password')
+    return res.status(200)
+    .json({
+        message:"User account updated successsfully",
+        success:true,
+        data:user
+    })
+})
+export const updateUserAvatar = asyncHandler(async(req,res)=>{
+    const avatarLocalPath = req.files?.path;
+    if(!avatarLocalPath){
+        throw new ApiError(400,'Avatar file is missing')
+    }
+    const avatar = await uploadOnCloudinary(avatarLocalPath)
+    if(!avatar){
+        throw new ApiError(400,'Avatar is not found')
+    }
+    const user = await User.findByIdAndUpdate(req.user?._id,{
+        $set:{
+            avatar:avatar.url,
+        }
+    },{
+        new:true
+    }).select('-password')
+    return res.status(200)
+    .json({
+        message:'Avatar updated successfully',
+        success:true,
+        data:user
+    })
+})
+export const getUsers =  asyncHandler(async(req,res)=>{
+ const users = await User.find();
+ return res.status(200)
+ .json({
+    data:users,
+    message:'Get all users successfully'
+ })
+})
+export const getUser = asyncHandler(async(req,res)=>{
+    const user = await User.findById(req.user._id)
+    if(!user){
+        throw new ApiError(404,'User not found')
+    }
+    return res.status(200)
+    .json({
+        message:'Get user successfully',
+        data:user
+    })
 })

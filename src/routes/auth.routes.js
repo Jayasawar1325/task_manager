@@ -7,6 +7,6 @@ authRouter.route('/register').post(upload.fields([{
     name:'avatar',
     maxCount:1
 }]),registerUser)
-authRouter.route('/register').post(authorize,loginUser)
-authRouter.route('/register').post(authorize,logoutUser)
+authRouter.route('/login').post(authorize,loginUser)
+authRouter.route('/logout').post(authorize,logoutUser)
 export {authRouter}

@@ -5,19 +5,27 @@ import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js";
 import bcrypt from 'bcryptjs'
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
- const generateAccessAndRefreshToken = async(userId)=>{
-     try{
-        const user = await User.findById(userId);
-        const accessToken = user.generateAccesToken();
-        const refreshToken = user.generateRefreshToken();
-        req.refreshToken = refreshToken;
-        await user.save({validateBeforeSave:false})
-        return {accessToken,refreshToken}
-     }
-     catch(error){
-        throw new ApiError(500,'Something went wrong while generating access and refresh Token')
-     }
+const generateAccessAndRefreshToken = async (userId) => {
+    try {
+      const user = await User.findById(userId);
+  
+      if (!user) {
+        throw new ApiError(404, "User not found"); // ✅ Ensure user exists
+      }
+  
+      const accessToken = user.generateAccessToken(); // ✅ Now correctly defined
+      const refreshToken = user.generateRefreshToken();
+  
+      user.refreshToken = refreshToken;
+      await user.save({ validateBeforeSave: false });
+  
+      return { accessToken, refreshToken };
+    } catch (error) {
+      console.error("Token Generation Error:", error); // ✅ Log error for debugging
+      throw new ApiError(500, "Something went wrong while generating access and refresh Token");
     }
+  };
+  
 
 export const registerUser = asyncHandler(async(req,res)=>{
     const {name,email,password}= req.body;
@@ -28,29 +36,31 @@ export const registerUser = asyncHandler(async(req,res)=>{
     if(existingUser){
         throw new ApiError(400,'User already exists')
     }
-    const slat = bcrypt.genSalt(10)
+    const salt =await bcrypt.genSalt(10)
     const hashedPassword = await bcrypt.hash(password,salt)
 
-    const avatarLocalPath =req.files.avatar[0].path;
+    const avatarLocalPath =req.files?.avatar[0]?.path;
     if(!avatarLocalPath){
         throw new ApiError(400,'Avatar file path is missing')
     }
     const avatar = await uploadOnCloudinary(avatarLocalPath)
-    if(avatar){
+
+    if(!avatar){
         throw new ApiError(400,'Avatar is required')
     }
+  
     const user = await User.create({
         name,
-        avatar:avatar.url,
         password:hashedPassword,
-        email
+        email,
+        avatar:avatar.url
     })
     const {accessToken,refreshToken} = await generateAccessAndRefreshToken(user._id)
-    return res.status(200)
+     res.status(200)
     .json({
         message:'User registered successfully',
         success:true,
-        data:{user:user}
+        data:{user,accessToken, refreshToken}
     })
     })
 export const loginUser = asyncHandler(async(req,res)=>{

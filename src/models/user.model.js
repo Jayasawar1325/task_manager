@@ -24,18 +24,18 @@ avatar:{
     required:[true,'Avatar is required']
 }
 },{timestamps:true})
-userSchema.methods.generateAccesToken= function(){
+userSchema.methods.generateAccessToken= function(){
     return jwt.sign({
-        _id:_id,
-        email:email
+        _id:this._id,
+        email:this.email
     },process.env.ACCESS_TOKEN_SECRET,{
         expiresIn:process.env.ACCESS_TOKEN_EXPIRY
     }
 )
 }
-userSchema.methods.generateRefeshToken = function(){
+userSchema.methods.generateRefreshToken = function(){
     return jwt.sign({
-        _id:_id,
+        _id:this._id,
     },process.env.REFRESH_TOKEN_SECRET,{
         expiresIn:process.env.REFRESH_TOKEN_EXPIRY
     }

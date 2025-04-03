@@ -16,6 +16,8 @@ app.use(express.urlencoded({
 // Routes
 import { authRouter } from './routes/auth.routes.js'
 app.use('/api/v1/auth',authRouter)
+import { taskRouter } from './routes/task.routes.js'
+app.use('/api/v1/tasks',taskRouter)
 
 connectDB()
 .then(()=>{

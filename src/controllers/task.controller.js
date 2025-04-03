@@ -9,7 +9,6 @@ export const getTasks = asyncHandler(async(req,res)=>{
         data:tasks
     }) 
 })
-
 export const getTask = asyncHandler(async(req,res)=>{
     const task = await Task.findById(req.params.id)
     if(!task){

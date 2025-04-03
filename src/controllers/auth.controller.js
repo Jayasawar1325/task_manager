@@ -4,6 +4,7 @@ import { asyncHandler } from "../utils/asyncHandler.js"
 import { User } from "../models/user.model.js"
 import { ApiError } from "../utils/ApiError.js";
 import bcrypt from 'bcryptjs'
+import { aj } from "../utils/arcjet.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
 const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -32,6 +33,11 @@ export const registerUser = asyncHandler(async(req,res)=>{
     if(!(name || email || password )){
         throw new ApiError(400,'All fields are required')
     }
+       // Arcjet Email Validation
+       const decision = await aj.protect(req, { email });
+       if (decision.isDenied()) {
+           throw new ApiError(400, "Invalid or disposable email");
+       }
     const existingUser = await User.findOne({email})
     if(existingUser){
         throw new ApiError(400,'User already exists')
@@ -63,37 +69,42 @@ export const registerUser = asyncHandler(async(req,res)=>{
         data:{user,accessToken, refreshToken}
     })
     })
-export const loginUser = asyncHandler(async(req,res)=>{
-    const {email,password} = req.body;
-    if(!(email || password)){
-        throw new ApiError(400,'Email and password are required')
-    }
-    const user = await User.findOne({email})
-    if(!user){
-        throw new ApiError(404,'User not found')
-    }
-    const isPasswordValid = await bcrypt.compare(password,user.password)
-    if(!isPasswordValid){
-        throw new ApiError(400,'Password doesnot match')
-    }
-    const {accessToken,refreshToken} = await generateAccessAndRefreshToken(user._id)
-    const loggedInUser= await User.findById(user._id).select('-password')
-    const options ={
-        httpOnly:true,
-        secure:true
-    }
-    return res.status(200)
-    .cookie('accessToken',accessToken,options)
-    .cookie('refreshToken',refreshToken,options)
-    .json({
-        message:'User logged In successfully',
-        success:true,
-        data:{
-            loggedInUser
-        }
-    })
+    export const loginUser = asyncHandler(async (req, res) => {
     
-})
+        const { email, password } = req.body;
+        if (!email || !password) {
+            throw new ApiError(400, 'Email and password are required');
+        }
+    
+        const user = await User.findOne({ email });
+        if (!user) {
+            throw new ApiError(404, 'User not found');
+        }
+    
+        const isPasswordValid = await bcrypt.compare(password, user.password);
+        if (!isPasswordValid) {
+            throw new ApiError(400, 'Password does not match');
+        }
+    
+        const { accessToken, refreshToken } = await generateAccessAndRefreshToken(user._id);
+        const loggedInUser = await User.findById(user._id).select('-password');
+    
+        const options = {
+            httpOnly: true,
+            secure: true,
+        };
+    
+        return res
+            .status(200)
+            .cookie('accessToken', accessToken, options)
+            .cookie('refreshToken', refreshToken, options)
+            .json({
+                message: 'User logged in successfully',
+                success: true,
+                data: loggedInUser,
+            });
+    });
+    
 export const logoutUser = asyncHandler(async(req,res)=>{
     await User.findByIdAndUpdate(req.user._id,{
         $unset:{
@@ -119,7 +130,7 @@ export const logoutUser = asyncHandler(async(req,res)=>{
 export const changePassword = asyncHandler(async(req,res)=>{
     const {oldPassword, newPassword} = req.body;
     const user = await User.findById(req.user?.id)
-    const isPasswordCorect =  bcrypt.compare(oldPassword);
+    const isPasswordCorect =  bcrypt.compare(oldPassword,user.password);
     if(!isPasswordCorect){
         throw new ApiError(400,'Invalid old Password')
     }
@@ -152,29 +163,33 @@ export const updateAccountDetails = asyncHandler(async(req,res)=>{
         data:user
     })
 })
-export const updateUserAvatar = asyncHandler(async(req,res)=>{
-    const avatarLocalPath = req.files?.path;
-    if(!avatarLocalPath){
-        throw new ApiError(400,'Avatar file is missing')
+export const updateUserAvatar = asyncHandler(async (req, res) => {
+
+
+    if (!req.file) {
+        throw new ApiError(400, "Avatar file is missing");
     }
-    const avatar = await uploadOnCloudinary(avatarLocalPath)
-    if(!avatar){
-        throw new ApiError(400,'Avatar is not found')
+
+    const avatarLocalPath = req.file.path;
+    console.log("Avatar Local Path:", avatarLocalPath);
+
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
+    if (!avatar || !avatar.url) {
+        throw new ApiError(400, "Avatar upload failed");
     }
-    const user = await User.findByIdAndUpdate(req.user?._id,{
-        $set:{
-            avatar:avatar.url,
-        }
-    },{
-        new:true
-    }).select('-password')
-    return res.status(200)
-    .json({
-        message:'Avatar updated successfully',
-        success:true,
-        data:user
-    })
-})
+
+    const user = await User.findByIdAndUpdate(req.user?._id, {
+        $set: { avatar: avatar.url },
+    }, { new: true });
+
+    return res.status(200).json({
+        message: "Avatar updated successfully",
+        success: true,
+        data: user,
+    });
+});
+
+
 export const getUsers =  asyncHandler(async(req,res)=>{
  const users = await User.find();
  return res.status(200)
@@ -184,13 +199,16 @@ export const getUsers =  asyncHandler(async(req,res)=>{
  })
 })
 export const getUser = asyncHandler(async(req,res)=>{
-    const user = await User.findById(req.user._id)
-    if(!user){
-        throw new ApiError(404,'User not found')
+    if (!req.user || !req.user._id) {
+        throw new ApiError(401, 'Unauthorized access');
+    }
+    const user = await User.findById(req.user._id);
+    if (!user) {
+        throw new ApiError(404, 'User not found');
     }
     return res.status(200)
     .json({
-        message:'Get user successfully',
-        data:user
-    })
+        message: 'Get user successfully',
+        data: user
+    });
 })
